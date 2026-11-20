@@ -176,6 +176,33 @@ header h1 span { color: var(--accent); }
 
 .btn-danger:hover { background: var(--red); color: #fff; }
 
+/* 文件导入：使用真实文件输入控件接收点击，提升 Android WebView 兼容性 */
+.file-picker-label {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+.file-picker-label input[type="file"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+.file-picker-label:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
 
 .theme-toggle {
 
@@ -1038,9 +1065,12 @@ header h1 span { color: var(--accent); }
 
         <button class="btn btn-primary" id="exportFileBtn" style="flex:1;" data-i18n="exportFile">导出文件</button>
 
-        <button class="btn" id="importFileBtn" style="flex:1;" data-i18n="importFile">导入文件</button>
-
-        <input type="file" id="importFileInput" accept=".json" style="display:none;">
+        <label class="btn file-picker-label" id="importFileBtn" style="flex:1;">
+          <span data-i18n="importFile">导入文件</span>
+          <!-- 保留真实、可点击的 file input；不要使用 display:none 或依赖脚本模拟点击，
+               这样 Android WebView 更容易识别为用户主动触发的文件选择操作。 -->
+          <input type="file" id="importFileInput" accept=".json,application/json,text/json,text/plain" aria-label="选择 JSON 备份文件">
+        </label>
 
       </div>
 
@@ -2671,6 +2701,7 @@ function handleImportFile(event) {
 
   if (!file) return;
 
+  const input = event.target;
   const reader = new FileReader();
 
   reader.onload = (e) => {
@@ -2683,19 +2714,28 @@ function handleImportFile(event) {
 
         entries = imported;
 
-        entries.forEach(e => { if (!e.id) e.id = Date.now() + '-' + Math.random(); });
+        entries.forEach(item => { if (!item.id) item.id = Date.now() + '-' + Math.random(); });
 
         saveEntries(); render(); closeSyncModal(); toastMsg(t('syncLoadOk'));
 
-      } else throw new Error();
+      } else throw new Error('备份文件内容不是有效的账目数组');
 
     } catch (err) { toastMsg(t('syncErr')); }
+    finally { input.value = ''; }
 
   };
 
-  reader.readAsText(file);
+  reader.onerror = () => {
+    input.value = '';
+    toastMsg(t('syncErr'));
+  };
 
-  event.target.value = '';
+  try {
+    reader.readAsText(file);
+  } catch (err) {
+    input.value = '';
+    toastMsg(t('syncErr'));
+  }
 
 }
 
@@ -2799,7 +2839,7 @@ function render() {
 
     const yTot = yInc + yExp;
 
-    html += `<div class="group year-group open"><div class="group-header" onclick="toggleGroup(this)"><div class="gh-left"><span class="chevron">▶</span><span class="group-title">${y}${t('year')}</span></div><div class="gh-stats"><span class="gh-stat income" data-val="${yInc}" data-label="${t('yearIncome')}">${t('yearIncome')}: ${renderMoney(fmtMain(yInc))}</span><span class="gh-stat expense" data-val="${yExp}" data-label="${t('yearExpense')}">${t('yearExpense')}: ${renderMoney(fmtMain(yExp))}</span><span class="gh-stat total" data-val="${yTot}" data-label="${t('yearTotal')}">${t('yearTotal')}: ${renderMoney(fmtMain(yTot))}</span></div></div><div class="group-body">`;
+    html += `<div class="group year-group"><div class="group-header" onclick="toggleGroup(this)"><div class="gh-left"><span class="chevron">▶</span><span class="group-title">${y}${t('year')}</span></div><div class="gh-stats"><span class="gh-stat income" data-val="${yInc}" data-label="${t('yearIncome')}">${t('yearIncome')}: ${renderMoney(fmtMain(yInc))}</span><span class="gh-stat expense" data-val="${yExp}" data-label="${t('yearExpense')}">${t('yearExpense')}: ${renderMoney(fmtMain(yExp))}</span><span class="gh-stat total" data-val="${yTot}" data-label="${t('yearTotal')}">${t('yearTotal')}: ${renderMoney(fmtMain(yTot))}</span></div></div><div class="group-body">`;
 
     Object.keys(years[y]).sort((a, b) => b - a).forEach(m => {
 
@@ -2809,7 +2849,7 @@ function render() {
 
       const mTot = mInc + mExp;
 
-      html += `<div class="group month-group open"><div class="group-header" onclick="toggleGroup(this)"><div class="gh-left"><span class="chevron">▶</span><span class="group-title">${m}${t('month')}</span></div><div class="gh-stats"><span class="gh-stat income" data-val="${mInc}" data-label="${t('monthIncome')}">${t('monthIncome')}: ${renderMoney(fmtMain(mInc))}</span><span class="gh-stat expense" data-val="${mExp}" data-label="${t('monthExpense')}">${t('monthExpense')}: ${renderMoney(fmtMain(mExp))}</span><span class="gh-stat total" data-val="${mTot}" data-label="${t('monthTotal')}">${t('monthTotal')}: ${renderMoney(fmtMain(mTot))}</span></div></div><div class="group-body">`;
+      html += `<div class="group month-group"><div class="group-header" onclick="toggleGroup(this)"><div class="gh-left"><span class="chevron">▶</span><span class="group-title">${m}${t('month')}</span></div><div class="gh-stats"><span class="gh-stat income" data-val="${mInc}" data-label="${t('monthIncome')}">${t('monthIncome')}: ${renderMoney(fmtMain(mInc))}</span><span class="gh-stat expense" data-val="${mExp}" data-label="${t('monthExpense')}">${t('monthExpense')}: ${renderMoney(fmtMain(mExp))}</span><span class="gh-stat total" data-val="${mTot}" data-label="${t('monthTotal')}">${t('monthTotal')}: ${renderMoney(fmtMain(mTot))}</span></div></div><div class="group-body">`;
 
       Object.keys(years[y][m]).sort((a, b) => b - a).forEach(dd => {
 
@@ -2821,7 +2861,7 @@ function render() {
 
         const dTot = dInc + dExp;
 
-        html += `<div class="group day-group open"><div class="group-header" onclick="toggleGroup(this)"><div class="gh-left"><span class="chevron">▶</span><span class="group-title">${dd}${t('day')}</span></div><div class="gh-stats"><span class="gh-stat income" data-val="${dInc}" data-label="${t('dayIncome')}">${t('dayIncome')}: ${renderMoney(fmtMain(dInc))}</span><span class="gh-stat expense" data-val="${dExp}" data-label="${t('dayExpense')}">${t('dayExpense')}: ${renderMoney(fmtMain(dExp))}</span><span class="gh-stat total" data-val="${dTot}" data-label="${t('dayTotal')}">${t('dayTotal')}: ${renderMoney(fmtMain(dTot))}</span></div></div><div class="group-body">`;
+        html += `<div class="group day-group"><div class="group-header" onclick="toggleGroup(this)"><div class="gh-left"><span class="chevron">▶</span><span class="group-title">${dd}${t('day')}</span></div><div class="gh-stats"><span class="gh-stat income" data-val="${dInc}" data-label="${t('dayIncome')}">${t('dayIncome')}: ${renderMoney(fmtMain(dInc))}</span><span class="gh-stat expense" data-val="${dExp}" data-label="${t('dayExpense')}">${t('dayExpense')}: ${renderMoney(fmtMain(dExp))}</span><span class="gh-stat total" data-val="${dTot}" data-label="${t('dayTotal')}">${t('dayTotal')}: ${renderMoney(fmtMain(dTot))}</span></div></div><div class="group-body">`;
 
         dayEntries.forEach(e => { html += entryHTML(e); });
 
@@ -3111,8 +3151,7 @@ syncModalOverlay.addEventListener('click', (e) => { if (e.target === syncModalOv
 
 $('exportFileBtn').addEventListener('click', exportData);
 
-$('importFileBtn').addEventListener('click', () => $('importFileInput').click());
-
+// 文件输入框直接覆盖在导入标签上，依靠真实用户点击触发系统文件选择器。
 $('importFileInput').addEventListener('change', handleImportFile);
 
 $('copyDataBtn').addEventListener('click', copyText);
